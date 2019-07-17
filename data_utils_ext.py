@@ -9,12 +9,14 @@ import matplotlib.pyplot as plt
 import torch
 import pandas as pd
 import albumentations as aug
+from albumentations import Compose
 from torch.utils.data import Dataset
 import cv2
 import logging
 from tqdm import tqdm
 from PIL import Image
 from torchvision.transforms import Resize
+from typing import Optional as O
 
 
 def get_default_augmentor():
@@ -56,11 +58,51 @@ def worker_init_fn_random(idx):
     logging.info('\t@@start-worker({}): @pid = [{}]'.format(idx, os.getpid()))
 
 
+def random_crop(sample: dict, scale: int, crop_lr: int) -> dict:
+    crop_hr = crop_lr * scale
+    img_lr, img_hr = sample['lr'], sample['hr']
+    nr, nc = img_lr.shape[:2]
+    rnd_r_lr = np.random.randint(0, nr - crop_lr - 1)
+    rnd_c_lr = np.random.randint(0, nc - crop_lr - 1)
+    rnd_r_hr = rnd_r_lr * scale
+    rnd_c_hr = rnd_c_lr * scale
+    img_lr = img_lr[rnd_r_lr:rnd_r_lr + crop_lr, rnd_c_lr:rnd_c_lr + crop_lr, ...].copy()
+    img_hr = img_hr[rnd_r_hr:rnd_r_hr + crop_hr, rnd_c_hr:rnd_c_hr + crop_hr, ...].copy()
+    return {
+        'lr': img_lr,
+        'hr': img_hr
+    }
+
+
+def load_sample(wdir: str, row, upscale_lr: bool, interpolation) -> dict:
+    path_lr = os.path.join(wdir, row['path_lr'])
+    path_hr = os.path.join(wdir, row['path_hr'])
+    path_lr = os.path.join(wdir, path_lr)
+    path_hr = os.path.join(wdir, path_hr)
+    img_lr = read_rgb_img(path_lr)
+    img_hr = read_rgb_img(path_hr)
+    if upscale_lr:
+        siz_xy = img_hr.shape[:2][::-1]
+        img_lr = cv2.resize(img_hr, siz_xy, interpolation=interpolation)
+    return {'lr': img_lr, 'hr': img_hr}
+
+
+def load_idx_into_memory(data_idx: pd.DataFrame, wdir: str, upscale_lr, interpolation) -> list:
+    data = []
+    pbar = tqdm(total=len(data_idx), desc='loading data into memory')
+    for irow, row in data_idx.iterrows():
+        data.append(load_sample(wdir, row, upscale_lr, interpolation=interpolation))
+        pbar.set_description('Processing {}'.format(row['path_hr']))
+        pbar.update(irow)
+    pbar.close()
+    return data
+
+
 
 class DatasetExtTrn(Dataset):
 
     def __init__(self, path_idx: str, crop_lr: int,
-                 scale: int, augmentator=get_default_augmentor(),
+                 scale: int, augmentator: O[Compose] = get_default_augmentor(),
                  in_memory=False, upscale_lr=False, use_random_crop=True,
                  interpolation=cv2.INTER_CUBIC):
         self.path_idx = path_idx
@@ -79,40 +121,11 @@ class DatasetExtTrn(Dataset):
     def build(self):
         self.data_idx = pd.read_csv(self.path_idx)
         if self.in_memory:
-            self.data = []
-            pbar = tqdm(total=len(self.data_idx), desc='loading data into memory')
-            for irow, row in self.data_idx.iterrows():
-                self.data.append(self.load_sample(row))
-                pbar.set_description('Processing {}'.format(row['path_hr']))
-                pbar.update(irow)
-            pbar.close()
+            self.data = load_idx_into_memory(
+                self.data_idx, wdir=self.wdir,
+                upscale_lr=self.upscale_lr,
+                interpolation=self.interpolation)
         return self
-
-    def random_crop(self, sample: dict) -> dict:
-        img_lr, img_hr = sample['lr'], sample['hr']
-        nr, nc = img_lr.shape[:2]
-        rnd_r_lr = np.random.randint(0, nr - self.crop_lr - 1)
-        rnd_c_lr = np.random.randint(0, nc - self.crop_lr - 1)
-        rnd_r_hr = rnd_r_lr * self.scale
-        rnd_c_hr = rnd_c_lr * self.scale
-        img_lr = img_lr[rnd_r_lr:rnd_r_lr + self.crop_lr, rnd_c_lr:rnd_c_lr + self.crop_lr, ...].copy()
-        img_hr = img_hr[rnd_r_hr:rnd_r_hr + self.crop_hr, rnd_c_hr:rnd_c_hr + self.crop_hr, ...].copy()
-        return {
-            'lr': img_lr,
-            'hr': img_hr
-        }
-
-    def load_sample(self, row):
-        path_lr = os.path.join(self.wdir, row['path_lr'])
-        path_hr = os.path.join(self.wdir, row['path_hr'])
-        path_lr = os.path.join(self.wdir, path_lr)
-        path_hr = os.path.join(self.wdir, path_hr)
-        img_lr = read_rgb_img(path_lr)
-        img_hr = read_rgb_img(path_hr)
-        if self.upscale_lr:
-            siz_xy = img_hr.shape[:2][::-1]
-            img_lr = cv2.resize(img_hr, siz_xy, interpolation=self.interpolation)
-        return {'lr': img_lr, 'hr': img_hr}
 
     def augment_sample(self, aug, sample: dict) -> dict:
         tmp = {'image': sample['lr'], 'mask': sample['hr']}
@@ -128,12 +141,26 @@ class DatasetExtTrn(Dataset):
         if self.in_memory:
             sample = self.data[idx]
         else:
-            sample = self.load_sample(self.data_idx.iloc[idx])
+            sample = load_sample(self.wdir, self.data_idx.iloc[idx],
+                                 upscale_lr=self.upscale_lr,
+                                 interpolation=self.interpolation)
         if self.use_random_crop:
-            sample = self.random_crop(sample)
+            sample = random_crop(sample, scale=self.scale, crop_lr=self.crop_lr)
         if self.augmentator is not None:
             sample = self.augment_sample(self.augmentator, sample)
         return sample
+
+
+class DatasetExtVal(DatasetExtTrn):
+
+    def __init__(self, path_idx: str, crop_lr: int, scale: int,
+                 in_memory=False, interpolation=cv2.INTER_CUBIC, crop_scale_factor: int = 2 ** 5):
+        super().__init__(path_idx, crop_lr, scale,
+                         in_memory=in_memory,
+                         upscale_lr=True,
+                         interpolation=interpolation, augmentator=None)
+        print('-')
+
 
 
 def main_run():
