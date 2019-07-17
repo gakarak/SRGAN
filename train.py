@@ -27,9 +27,10 @@ def train_step():
 def main_train(path_trn: str, path_val: str,
                crop_size: int, upscale_factor: int, num_epochs: int, num_workers: int):
 
-    train_set = TrainDatasetFromFolder('data/VOC2012/train', crop_size=crop_size, upscale_factor=upscale_factor)
-    val_set = ValDatasetFromFolder('data/VOC2012/val', upscale_factor=upscale_factor)
-
+    train_set = TrainDatasetFromFolder(path_trn, crop_size=crop_size, upscale_factor=upscale_factor)
+    val_set = ValDatasetFromFolder(path_val, upscale_factor=upscale_factor)
+    # train_set = TrainDatasetFromFolder('data/VOC2012/train', crop_size=crop_size, upscale_factor=upscale_factor)
+    # val_set = ValDatasetFromFolder('data/VOC2012/val', upscale_factor=upscale_factor)
 
     #
     train_loader = DataLoader(dataset=train_set, num_workers=4, batch_size=64, shuffle=True)
