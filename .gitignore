@@ -1,1 +1,3 @@
 /.idea/
+/__pycache__/
+/pytorch_ssim/__pycache__/
