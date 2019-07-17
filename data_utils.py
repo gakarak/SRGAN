@@ -1,5 +1,6 @@
 from os import listdir
 from os.path import join
+import matplotlib.pyplot as plt
 
 from PIL import Image
 from torch.utils.data.dataset import Dataset

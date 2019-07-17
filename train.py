@@ -1,6 +1,8 @@
 import argparse
 import os
+import cv2
 from math import log10
+import matplotlib.pyplot as plt
 
 import pandas as pd
 import torch.optim as optim
@@ -62,6 +64,18 @@ def main_train(path_trn: str, path_val: str,
         for data, target in train_bar:
             g_update_first = True
             batch_size = data.size(0)
+            #
+            # img_hr = target.numpy().transpose((0, 2, 3, 1))[0]
+            # img_lr = data.numpy().transpose((0, 2, 3, 1))[0]
+            # img_lr_x4 = cv2.resize(img_lr, img_hr.shape[:2], interpolation=cv2.INTER_CUBIC)
+            # #
+            # plt.subplot(1, 3, 1)
+            # plt.imshow(img_hr)
+            # plt.subplot(1, 3, 2)
+            # plt.imshow(img_lr)
+            # plt.subplot(1, 3, 3)
+            # plt.imshow(img_lr_x4)
+            # plt.show()
             running_results['batch_sizes'] += batch_size
 
             ############################
