@@ -2,9 +2,23 @@ from os import listdir
 from os.path import join
 import matplotlib.pyplot as plt
 
+import torch
 from PIL import Image
 from torch.utils.data.dataset import Dataset
 from torchvision.transforms import Compose, RandomCrop, ToTensor, ToPILImage, CenterCrop, Resize
+
+
+##############################################################
+def get_device(to_device=None, use_cuda=True):
+    if use_cuda and torch.cuda.is_available():
+        if to_device is None:
+            to_device = torch.device('cuda:0')
+        else:
+            to_device = torch.device(to_device)
+    else:
+        to_device = torch.device('cpu')
+        print(' *** warning: CUDA device is disabled (cuda-ok = {})'.format(torch.cuda.is_available()))
+    return to_device
 
 
 def is_image_file(filename):

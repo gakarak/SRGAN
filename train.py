@@ -16,6 +16,7 @@ import pytorch_ssim
 from data_utils import TrainDatasetFromFolder, ValDatasetFromFolder, display_transform
 from loss import GeneratorLoss
 from model import Generator, Discriminator
+from data_utils import get_device
 
 
 def train_step():
@@ -27,16 +28,16 @@ def train_step():
 
 
 def main_train(path_trn: str, path_val: str,
-               crop_size: int, upscale_factor: int, num_epochs: int, num_workers: int):
-
+               crop_size: int, upscale_factor: int, num_epochs: int,
+               num_workers: int, to_device: str = 'cuda:0', batch_size: int = 64):
+    to_device = get_device(to_device)
     train_set = TrainDatasetFromFolder(path_trn, crop_size=crop_size, upscale_factor=upscale_factor)
     val_set = ValDatasetFromFolder(path_val, upscale_factor=upscale_factor)
     # train_set = TrainDatasetFromFolder('data/VOC2012/train', crop_size=crop_size, upscale_factor=upscale_factor)
     # val_set = ValDatasetFromFolder('data/VOC2012/val', upscale_factor=upscale_factor)
-
     #
-    train_loader = DataLoader(dataset=train_set, num_workers=4, batch_size=64, shuffle=True)
-    val_loader = DataLoader(dataset=val_set, num_workers=4, batch_size=1, shuffle=False)
+    train_loader = DataLoader(dataset=train_set, num_workers=num_workers, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(dataset=val_set, num_workers=num_workers, batch_size=1, shuffle=False)
 
     netG = Generator(upscale_factor)
     print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
@@ -81,12 +82,14 @@ def main_train(path_trn: str, path_val: str,
             ############################
             # (1) Update D network: maximize D(x)-1-D(G(z))
             ###########################
-            real_img = Variable(target)
-            if torch.cuda.is_available():
-                real_img = real_img.cuda()
-            z = Variable(data)
-            if torch.cuda.is_available():
-                z = z.cuda()
+            # real_img = Variable(target)
+            # if torch.cuda.is_available():
+            #     real_img = real_img.cuda()
+            # z = Variable(data)
+            # if torch.cuda.is_available():
+            #     z = z.cuda()
+            z = data.to(to_device)
+            real_img = target.to(to_device)
             fake_img = netG(z)
 
             netD.zero_grad()
@@ -107,11 +110,11 @@ def main_train(path_trn: str, path_val: str,
             fake_out = netD(fake_img).mean()
 
             g_loss = generator_criterion(fake_out, fake_img, real_img)
-            running_results['g_loss'] += g_loss.data[0] * batch_size
+            running_results['g_loss'] += float(g_loss) * batch_size
             d_loss = 1 - real_out + fake_out
-            running_results['d_loss'] += d_loss.data[0] * batch_size
-            running_results['d_score'] += real_out.data[0] * batch_size
-            running_results['g_score'] += fake_out.data[0] * batch_size
+            running_results['d_loss'] += float(d_loss) * batch_size
+            running_results['d_score'] += float(real_out) * batch_size
+            running_results['g_score'] += float(fake_out) * batch_size
 
             train_bar.set_description(desc='[%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f' % (
                 epoch, num_epochs, running_results['d_loss'] / running_results['batch_sizes'],
@@ -188,16 +191,21 @@ if __name__ == '__main__':
                         help='super resolution upscale factor')
     parser.add_argument('--num_epochs', default=100, type=int, help='train epoch number')
     parser.add_argument('--threads', default=1, type=int, help='#workers for parallel processing')
+    parser.add_argument('--batch_size', default=64, type=int, help='batch-size')
+    parser.add_argument('--device', default='cuda:0', type=str, help='device, default "cuda:0"')
     args = parser.parse_args()
     print('args:\n\t{}'.format(args))
     #
+    to_device = get_device(args.device)
     main_train(
         path_trn=args.trn,
         path_val=args.val,
         crop_size=args.crop_size,
         upscale_factor=args.upscale_factor,
         num_epochs=args.num_epochs,
-        num_workers=args.threads
+        num_workers=args.threads,
+        batch_size=args.batch_size,
+        to_device=to_device
     )
 
 
