@@ -3,3 +3,4 @@
 /pytorch_ssim/__pycache__/
 /training_results/SRF_4/
 *.pth
+*.csv
