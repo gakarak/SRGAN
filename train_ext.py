@@ -159,7 +159,7 @@ def main_train(path_trn: str, path_val: str,
                 #     hr = hr.cuda()
                 # lr = val_lr.to(to_device)
                 # hr = val_hr.to(to_device)
-                val_hr_restore = convert_tensor_u8_to_fX(val_hr_restore)
+                val_hr_restore = x_preprocess(val_hr_restore, to_device=None)
                 lr = x_preprocess(val_lr, to_device=to_device)
                 hr = x_preprocess(val_hr, to_device=to_device)
                 sr = netG(lr)
