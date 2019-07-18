@@ -81,22 +81,38 @@ def load_sample(wdir: str, row, upscale_lr: bool, interpolation) -> dict:
     path_hr = os.path.join(wdir, path_hr)
     img_lr = read_rgb_img(path_lr)
     img_hr = read_rgb_img(path_hr)
+    ret = {'lr': img_lr, 'hr': img_hr}
     if upscale_lr:
         siz_xy = img_hr.shape[:2][::-1]
-        img_lr = cv2.resize(img_hr, siz_xy, interpolation=interpolation)
-    return {'lr': img_lr, 'hr': img_hr}
+        img_lr_up = cv2.resize(img_hr, siz_xy, interpolation=interpolation)
+        ret['lr_up'] = img_lr_up
+    return ret
 
 
-def load_idx_into_memory(data_idx: pd.DataFrame, wdir: str, upscale_lr, interpolation) -> list:
+def load_idx_into_memory(data_idx: pd.DataFrame, wdir: str, upscale_lr, interpolation, scale_factor: int = None) -> list:
     data = []
     pbar = tqdm(total=len(data_idx), desc='loading data into memory')
     for irow, row in data_idx.iterrows():
-        data.append(load_sample(wdir, row, upscale_lr, interpolation=interpolation))
+        sample = load_sample(wdir, row, upscale_lr, interpolation=interpolation)
+        if scale_factor is not None:
+            sample = crop_sample_by_scale_factor(sample, scale_factor)
+        data.append(sample)
         pbar.set_description('Processing {}'.format(row['path_hr']))
         pbar.update(irow)
     pbar.close()
     return data
 
+
+def crop_img_by_scale_factor(img: np.ndarray, scale_factor: int = 2**5) -> np.ndarray:
+    nrc = np.array(img.shape[:2])
+    nrc_fix = (scale_factor * np.floor(nrc / scale_factor)).astype(np.int)
+    ret = img[:nrc_fix[0], :nrc_fix[1], ...]
+    return ret
+
+
+def crop_sample_by_scale_factor(sample: dict, scale_factor: int) -> dict:
+    ret = {k: crop_img_by_scale_factor(v, scale_factor) for k, v in sample.items()}
+    return ret
 
 
 class DatasetExtTrn(Dataset):
@@ -104,7 +120,7 @@ class DatasetExtTrn(Dataset):
     def __init__(self, path_idx: str, crop_lr: int,
                  scale: int, augmentator: O[Compose] = get_default_augmentor(),
                  in_memory=False, upscale_lr=False, use_random_crop=True,
-                 interpolation=cv2.INTER_CUBIC):
+                 interpolation=cv2.INTER_CUBIC, crop_scale_factor: int = None):
         self.path_idx = path_idx
         self.wdir = os.path.dirname(self.path_idx)
         self.scale = scale
@@ -117,6 +133,7 @@ class DatasetExtTrn(Dataset):
         self.use_random_crop = use_random_crop
         self.data_idx = None
         self.data = None
+        self.crop_scale_factor = crop_scale_factor
 
     def build(self):
         self.data_idx = pd.read_csv(self.path_idx)
@@ -124,7 +141,9 @@ class DatasetExtTrn(Dataset):
             self.data = load_idx_into_memory(
                 self.data_idx, wdir=self.wdir,
                 upscale_lr=self.upscale_lr,
-                interpolation=self.interpolation)
+                interpolation=self.interpolation,
+                scale_factor=self.crop_scale_factor
+            )
         return self
 
     def augment_sample(self, aug, sample: dict) -> dict:
@@ -144,6 +163,8 @@ class DatasetExtTrn(Dataset):
             sample = load_sample(self.wdir, self.data_idx.iloc[idx],
                                  upscale_lr=self.upscale_lr,
                                  interpolation=self.interpolation)
+            if self.crop_scale_factor is not None:
+                sample = crop_sample_by_scale_factor(sample, scale_factor=self.crop_scale_factor)
         if self.use_random_crop:
             sample = random_crop(sample, scale=self.scale, crop_lr=self.crop_lr)
         if self.augmentator is not None:
@@ -155,28 +176,29 @@ class DatasetExtVal(DatasetExtTrn):
 
     def __init__(self, path_idx: str, crop_lr: int, scale: int,
                  in_memory=False, interpolation=cv2.INTER_CUBIC, crop_scale_factor: int = 2 ** 5):
-        super().__init__(path_idx, crop_lr, scale,
+        super().__init__(path_idx,
+                         crop_lr, scale,
                          in_memory=in_memory,
                          upscale_lr=True,
-                         interpolation=interpolation, augmentator=None)
-        print('-')
-
+                         interpolation=interpolation,
+                         augmentator=None,
+                         crop_scale_factor=crop_scale_factor)
 
 
 def main_run():
-    path_idx = '/home/ar/data/debug/high_resolution_data/idx-s2-x4.txt'
+    # path_idx = '/home/ar/data/debug/high_resolution_data/idx-s2-x4.txt'
+    path_idx = '/home/ar/data/debug/high_resolution_data/idx-x4.txt'
     scale = 4
     crop_lr = 32
-    dataset = DatasetExtTrn(path_idx=path_idx, crop_lr=crop_lr, scale=scale, in_memory=True).build()
-    for xi, x in enumerate(dataset):
-        plt.subplot(1, 2, 1)
-        plt.imshow(x['lr'])
-        plt.title('lr')
-        plt.subplot(1, 2, 2)
-        plt.imshow(x['hr'])
-        plt.title('hr')
-        plt.show()
-
+    # dataset_trn = DatasetExtTrn(path_idx=path_idx, crop_lr=crop_lr, scale=scale, in_memory=True).build()
+    dataset_val = DatasetExtVal(path_idx=path_idx, crop_lr=crop_lr, scale=scale, in_memory=True).build()
+    for xi, x in enumerate(dataset_val):
+        num_plots = len(x)
+        for ki, (k, v) in enumerate(x.items()):
+            plt.subplot(1, num_plots, ki + 1)
+            plt.imshow(v)
+            plt.title('({}): {}'.format(ki, k))
+            plt.show()
         print('-')
 
 
