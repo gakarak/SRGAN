@@ -178,7 +178,7 @@ def main_train(path_trn: str, path_val: str,
                     [display_transform()(val_hr_restore.squeeze(0)), display_transform()(hr.data.cpu().squeeze(0)),
                      display_transform()(sr.data.cpu().squeeze(0))])
             val_images = torch.stack(val_images)
-            val_images = torch.chunk(val_images, val_images.size(0) // 15)
+            val_images = torch.chunk(val_images, val_images.size(0) // 10)
             val_save_bar = tqdm(val_images, desc='[saving training results]')
             index = 1
             for image in val_save_bar:
@@ -202,7 +202,7 @@ def main_train(path_trn: str, path_val: str,
         results['ssim'].append(valing_results['ssim'])
 
         if epoch % 10 == 0 and epoch != 0:
-            out_dir = 'statistics/'
+            # out_dir = 'statistics/'
             out_path_csv = os.path.join(
                 out_dir_statistics,
                 '_s' + str(upscale_factor) + '_train_results.csv')
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train Super Resolution Models')
     parser.add_argument('--trn', default=None, type=str, required=True, help='path to train dataset')
     parser.add_argument('--val', default=None, type=str, required=True, help='path to validation dataset')
-    parser.add_argument('--crop_size', default=32, type=int, help='training images crop size')
+    parser.add_argument('--crop_size', default=22, type=int, help='training images crop size')
     parser.add_argument('--upscale_factor', default=4, type=int, choices=[2, 4, 8],
                         help='super resolution upscale factor')
     parser.add_argument('--num_epochs', default=100, type=int, help='train epoch number')
