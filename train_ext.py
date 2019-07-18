@@ -135,6 +135,7 @@ def main_train(path_trn: str, path_val: str,
             running_results['d_score'] += float(real_out) * batch_size
             running_results['g_score'] += float(fake_out) * batch_size
 
+            train_bar.update(idx_train)
             train_bar.set_description(desc='[%d/%d] Loss_D: %.4f Loss_G: %.4f D(x): %.4f D(G(z)): %.4f' % (
                 epoch, num_epochs, running_results['d_loss'] / running_results['batch_sizes'],
                 running_results['g_loss'] / running_results['batch_sizes'],
@@ -149,6 +150,7 @@ def main_train(path_trn: str, path_val: str,
             valing_results = {'mse': 0, 'ssims': 0, 'psnr': 0, 'ssim': 0, 'batch_sizes': 0}
             val_images = []
             for idx_val, data_val in enumerate(val_loader):
+                val_bar.update(idx_val)
                 val_lr, val_hr_restore, val_hr = data_val['lr'], data_val['lr_up'], data_val['hr']
                 batch_size = val_lr.size(0)
                 valing_results['batch_sizes'] += batch_size
@@ -170,9 +172,9 @@ def main_train(path_trn: str, path_val: str,
                 valing_results['ssims'] += batch_ssim * batch_size
                 valing_results['psnr'] = 10 * log10(1 / (valing_results['mse'] / valing_results['batch_sizes']))
                 valing_results['ssim'] = valing_results['ssims'] / valing_results['batch_sizes']
-                val_bar.set_description(
-                    desc='[converting LR images to SR images] PSNR: %.4f dB SSIM: %.4f' % (
-                        valing_results['psnr'], valing_results['ssim']))
+                # val_bar.set_description(
+                #     desc='[converting LR images to SR images] PSNR: %.4f dB SSIM: %.4f' % (
+                #         valing_results['psnr'], valing_results['ssim']))
 
                 val_images.extend(
                     [display_transform()(val_hr_restore.squeeze(0)), display_transform()(hr.data.cpu().squeeze(0)),
