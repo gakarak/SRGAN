@@ -27,8 +27,9 @@ def crop_to_size_factor(img: np.ndarray, siz_factor: int) -> np.ndarray:
 
 def main_inference(path_image: str, path_image_out: str, path_model: str, upscale_factor: int, to_devide ='cuda:0'):
     if path_image_out is None:
-        model_pref = os.path.basename(os.path.splitext(path_image)[0])
-        path_image_out = path_image + '_m{}_upscale_x{}.tif'.format(model_pref, upscale_factor)
+        model_pref = os.path.basename(os.path.splitext(path_model)[0])
+        # path_image_out = path_image + '_m{}_upscale_x{}.mbtiles'.format(model_pref, upscale_factor)
+        path_image_out = path_image + '_m{}_upscale_x{}.jp2'.format(model_pref, upscale_factor)
     #
     model = Generator(upscale_factor).eval()
     model = model.to(to_devide)
@@ -43,12 +44,15 @@ def main_inference(path_image: str, path_image_out: str, path_model: str, upscal
                                     pproc_function=x_preprocess,
                                     to_device=to_device,
                                     upscale_factor=upscale_factor,
-                                    num_debug_prints=10)
+                                    num_debug_prints=10,
+                                    is_u8_norm=True)
     dt = time.time() - t1
-    print('\t... done, dt ~ {:0.2} (s)'.format(dt))
+    print('\t... done, dt ~ {:0.2f} (s)'.format(dt))
     print('export geo-data into: [{}]'.format(path_image_out))
     ds_pmap = s2_utils.clone_georef_ds(path_image, pmap)
-    gdal.Translate(path_image_out, ds_pmap, creationOptions=['COMPRESS=LZW'])
+    # gdal.Translate(path_image_out, ds_pmap, format="MBTiles")
+    gdal.Translate(path_image_out, ds_pmap, format="JP2OpenJPEG")
+    #JP2OpenJPEG
     print('\t\t... done, out={}'.format(path_image_out))
 
 
