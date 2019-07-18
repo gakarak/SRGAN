@@ -181,9 +181,9 @@ def main_train(path_trn: str, path_val: str,
                      display_transform()(sr.data.cpu().squeeze(0))])
             val_images = torch.stack(val_images)
             val_images = torch.chunk(val_images, val_images.size(0) // 10)
-            val_save_bar = tqdm(val_images, desc='[saving training results]')
+            # val_save_bar = tqdm(val_images, desc='[saving training results]')
             index = 1
-            for image in val_save_bar:
+            for image in val_images: #val_save_bar:
                 image = utils.make_grid(image, nrow=3, padding=5)
                 utils.save_image(image,
                                  os.path.join(out_dir, 'epoch_%d_index_%d.png' % (epoch, index)),
@@ -220,12 +220,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train Super Resolution Models')
     parser.add_argument('--trn', default=None, type=str, required=True, help='path to train dataset')
     parser.add_argument('--val', default=None, type=str, required=True, help='path to validation dataset')
-    parser.add_argument('--crop_size', default=22, type=int, help='training images crop size')
+    parser.add_argument('--crop_size', default=12, type=int, help='training images crop size')
     parser.add_argument('--upscale_factor', default=4, type=int, choices=[2, 4, 8],
                         help='super resolution upscale factor')
     parser.add_argument('--num_epochs', default=100, type=int, help='train epoch number')
     parser.add_argument('--threads', default=1, type=int, help='#workers for parallel processing')
-    parser.add_argument('--batch_size', default=64, type=int, help='batch-size')
+    parser.add_argument('--batch_size', default=32, type=int, help='batch-size')
     parser.add_argument('--device', default='cuda:0', type=str, help='device, default "cuda:0"')
     parser.add_argument('--in_memory_trn', action='store_true', help='Load train dataset into memory')
     parser.add_argument('--in_memory_val', action='store_true', help='Load validation dataset into memory')
