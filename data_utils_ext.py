@@ -68,10 +68,14 @@ def random_crop(sample: dict, scale: int, crop_lr: int) -> dict:
     rnd_c_hr = rnd_c_lr * scale
     img_lr = img_lr[rnd_r_lr:rnd_r_lr + crop_lr, rnd_c_lr:rnd_c_lr + crop_lr, ...].copy()
     img_hr = img_hr[rnd_r_hr:rnd_r_hr + crop_hr, rnd_c_hr:rnd_c_hr + crop_hr, ...].copy()
-    return {
+    ret = {
         'lr': img_lr,
         'hr': img_hr
     }
+    if 'lr_up' in sample:
+        img_lr_up = sample['lr_up'][rnd_r_hr:rnd_r_hr + crop_hr, rnd_c_hr:rnd_c_hr + crop_hr, ...].copy()
+        ret['lr_up'] = img_lr_up
+    return ret
 
 
 def load_sample(wdir: str, row, upscale_lr: bool, interpolation) -> dict:
@@ -84,7 +88,7 @@ def load_sample(wdir: str, row, upscale_lr: bool, interpolation) -> dict:
     ret = {'lr': img_lr, 'hr': img_hr}
     if upscale_lr:
         siz_xy = img_hr.shape[:2][::-1]
-        img_lr_up = cv2.resize(img_hr, siz_xy, interpolation=interpolation)
+        img_lr_up = cv2.resize(img_lr, siz_xy, interpolation=interpolation)
         ret['lr_up'] = img_lr_up
     return ret
 
@@ -182,6 +186,7 @@ class DatasetExtVal(DatasetExtTrn):
                          upscale_lr=True,
                          interpolation=interpolation,
                          augmentator=None,
+                         use_random_crop=False,
                          crop_scale_factor=crop_scale_factor)
 
 
@@ -198,7 +203,7 @@ def main_run():
             plt.subplot(1, num_plots, ki + 1)
             plt.imshow(v)
             plt.title('({}): {}'.format(ki, k))
-            plt.show()
+        plt.show()
         print('-')
 
 
