@@ -94,7 +94,6 @@ def validation_step(dataloader: DataLoader, netG: nn.Module,
             val_lr, val_hr_restore, val_hr = data_val['lr'], data_val['lr_up'], data_val['hr']
             batch_size = val_lr.size(0)
             batch_sizes += batch_size
-            # val_results['batch_sizes'] += batch_size
             val_hr_restore = x_preprocess(val_hr_restore, to_device=None)
             lr = x_preprocess(val_lr, to_device=to_device)
             hr = x_preprocess(val_hr, to_device=to_device)
@@ -104,8 +103,8 @@ def validation_step(dataloader: DataLoader, netG: nn.Module,
             val_results['mse'] += batch_mse * batch_size
             batch_ssim = float(pytorch_ssim.ssim(sr, hr))  # .data[0]
             val_results['ssims'] += batch_ssim * batch_size
-            val_results['psnr'] = 10 * log10(1 / (val_results['mse'] / val_results['batch_sizes']))
-            val_results['ssim'] = val_results['ssims'] / val_results['batch_sizes']
+            val_results['psnr'] = 10 * log10(1 / (val_results['mse'] / batch_sizes))
+            val_results['ssim'] = val_results['ssims'] / batch_sizes
             if (idx_val % step_) == 0:
                 print('\t\t(VAL) [{}/{}] <- MSE/SSIM = {:0.3f}/{:0.3f}'.format(idx_val, num_samples, batch_mse, batch_ssim))
             val_images.extend([
