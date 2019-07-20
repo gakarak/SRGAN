@@ -179,6 +179,15 @@ def main_train(path_trn: str, path_val: str,
             results_save = {**results_train, **results_validation}
             results_save['epoch'] = epoch
             export_results(results_save, path_results_csv)
+            # export model
+            # save model parameters
+            path_state_G = os.path.join(out_dir_states, 'netG_epoch_x{}_{:05d}.pth'.format(upscale_factor, epoch))
+            path_state_D = os.path.join(out_dir_states, 'netD_epoch_x{}_{:05d}.pth'.format(upscale_factor, epoch))
+            t1 = time.time()
+            torch.save(netG.state_dict(), path_state_G)
+            torch.save(netD.state_dict(), path_state_D)
+            dt = time.time() - t1
+            print('\t\t:: dump:generator-model to [{}], dt ~ {:0.2f} (s)'.format(path_state_G, dt))
 
 
 if __name__ == '__main__':
