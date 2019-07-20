@@ -36,7 +36,7 @@ def train_step(dataloader: DataLoader,
     results = {'d_loss': 0, 'g_loss': 0, 'd_score': 0, 'g_score': 0}
     batch_sizes = 0
     num_samples = len(dataloader)
-    step_ = int(math.ceil(num_samples) / num_print)
+    step_ = int(math.ceil(num_samples / num_print))
     t1 = time.time()
     for idx_train, data_train in enumerate(dataloader):
         # (0) get lr/hr data
@@ -112,11 +112,15 @@ def validation_step(dataloader: DataLoader, netG: nn.Module,
                 display_transform()(hr.data.cpu().squeeze(0)),
                 display_transform()(sr.data.cpu().squeeze(0))
             ])
+        chunk_size = 3 * 5
+        size_round = chunk_size * int(math.floor(len(val_images) / chunk_size))
+        val_images = val_images[:size_round]
         val_images = torch.stack(val_images)
-        val_images = torch.chunk(val_images, val_images.size(0) // 10)
+        val_images = torch.chunk(val_images, val_images.size(0) // chunk_size)
         for idx_image, image in enumerate(val_images):  # val_save_bar:
             image = utils.make_grid(image, nrow=3, padding=5)
-            utils.save_image(image,os.path.join(out_dir, 'epoch_%d_index_%d.png' % (idx_epoch, idx_image)), padding=5)
+            path_img_out = os.path.join(out_dir, 'epoch_{:05d}_index_{:02d}.png'.format(idx_epoch, idx_image))
+            utils.save_image(image, path_img_out, padding=5)
     dt = time.time() - t1
     val_results = {k: v / batch_sizes for k, v in val_results.items()}
     tmp_ = ', '.join(['{}: {:0.2f}'.format(k, v) for k, v in val_results.items()])
