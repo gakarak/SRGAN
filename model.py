@@ -2,6 +2,7 @@ import math
 
 import torch.nn.functional as F
 from torch import nn
+import torch
 
 
 class Generator(nn.Module):
@@ -37,6 +38,13 @@ class Generator(nn.Module):
         block8 = self.block8(block1 + block7)
 
         return (F.tanh(block8) + 1) / 2
+
+    def inference(self, x):
+        if self.training:
+            self.eval()
+        with torch.no_grad():
+            x = self.forward(x)
+            return x
 
 
 class Discriminator(nn.Module):
